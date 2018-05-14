@@ -1,100 +1,83 @@
-# pylint: disable=missing-docstring
+"""
+This module solves the solution to a recursive maze puzzle.
+"""
 import queue
-from enum import Enum
-
-"""
-The direction a path follows (to enter a recursively deeper or shallower
-copy/layer of the puzzle) is represented by a value of either
-OUT, A, B, or C, where OUT is leaving the current layer outwards.
-"""
-class Direction(Enum):
-    OUT = 0
-    A = 1
-    B = 2
-    C = 3
-
-    def __repr__(self):
-        return str(self)
 
 """
 Holds a list of connections between search states in the puzzle.
-Each inner set contains a tuples of (gate, direction) pairs representing
-state changes that can be traversed between.
-Gates are numbered 1-16 clockwise starting at the top-left.
+Each inner list contains a group of nodes that are all pairwise connected
+in the maze (defined according to the PuzzleState class).
 """
 CONNECTIONS = [
-    [(1, Direction.OUT), (15, Direction.OUT),
-     (16, Direction.OUT), (1, Direction.A)],
-    [(2, Direction.OUT), (4, Direction.A)],
-    [(3, Direction.OUT), (5, Direction.A),
-     (1, Direction.C), (7, Direction.B), (12, Direction.OUT)],
-    [(4, Direction.OUT), (1, Direction.B)],
-    [(5, Direction.OUT), (4, Direction.B)],
-    [(6, Direction.OUT), (8, Direction.B)],
-    [(7, Direction.OUT), (3, Direction.A), (6, Direction.C)],
-    [(8, Direction.OUT), (10, Direction.OUT),
-     (13, Direction.OUT), (11, Direction.A)],
-    [(9, Direction.OUT), (3, Direction.B)],
-    [(11, Direction.OUT), (14, Direction.OUT), (14, Direction.A)],
-    [(8, Direction.A), (16, Direction.B)],
-    [(9, Direction.A), (13, Direction.C)],
-    [(16, Direction.A), (10, Direction.A)],
-    [(11, Direction.B), (4, Direction.C)],
-    [(14, Direction.B), (15, Direction.C)],
-    [(7, Direction.C), (8, Direction.C)]
+    [('E', 1), ('E', 15), ('E', 16), ('A', 1)],
+    [('E', 2), ('A', 4)],
+    [('E', 3), ('A', 5), ('C', 1), ('B', 7), ('E', 12)],
+    [('E', 4), ('B', 1)],
+    [('E', 5), ('B', 4)],
+    [('E', 6), ('B', 8)],
+    [('E', 7), ('A', 3), ('C', 6)],
+    [('E', 8), ('E', 10), ('E', 13), ('A', 11)],
+    [('E', 9), ('B', 3)],
+    [('E', 11), ('E', 14), ('A', 14)],
+    [('A', 8), ('B', 16)],
+    [('A', 9), ('C', 13)],
+    [('A', 16), ('A', 10)],
+    [('B', 11), ('C', 4)],
+    [('B', 14), ('C', 15)],
+    [('C', 7), ('C', 8)]
 ]
 
 
 class PuzzleState(object):
+    """
+    Represents a state of the maze puzzle.
 
-    def __init__(self, layer_list=None, gate=0):
-        """
-        layer_list is a list of "layers" the state has gone into
+    Describes a location of the puzzle in terms of a node, and
+    how many smaller copies of the maze that have been recursed into.
 
-        gate is the current outward "connection" the state is in
-        """
+    Attributes:
+        layer_list: a list of layers (either 'A', 'B', 'C') indicating what
+            order the puzzle has recursed into smaller copies of itself.
+            An empty list represents the outermost layer.
+        node: the point location within the current layer of the puzzle.
+            This is a tuple containing two elements: the first is the general
+            vicinity (the outside edge 'E', or outside of box 'A', 'B', or
+            'C'), and the specific node in that area (an integer from 1-16).
+    """
+
+    def __init__(self, layer_list=None, node=0):
+        """Inits PuzzleState with a layer list and node."""
         if layer_list is None:
             self.layer_list = []
         else:
             self.layer_list = layer_list
-        self.gate = gate
+        self.node = node
 
     def get_neighbors(self):
-        curr_layer = self.layer_list[-1] if self.layer_list else None
-        candidates = []
-        for group in CONNECTIONS:
-            match = False
-            for gate, direction in group:
-                if gate == self.gate and direction is curr_layer:
-                    match = True
-                if (gate == self.gate and direction is Direction.OUT and
-                        self.layer_list):
-                    match = True
-            if match:
-                candidates = candidates + group
+        """
+        Generates a list of neighboring PuzzleState instances.
 
-        # remove candidates that crate self-loops
-        self_states = [(self.gate, curr_layer), (self.gate, Direction.OUT)]
-        candidates = list(set(candidates).difference(self_states))
-
-        # final list of neighbors must be list of PuzzleStates
-        def tuple_to_puzzle_state(tup):
-            gate, direction = tup
-            layer_list = self.layer_list
-            if direction is Direction.OUT:
-                layer_list = layer_list[:-1]
-            else:
-                layer_list = layer_list + [direction]
-            return PuzzleState(layer_list, gate)
-        neighbors = list(map(tuple_to_puzzle_state, candidates))
-        return neighbors
+        A PuzzleState instance is a neighbor if it is one direct move away,
+        which is either moving between two nodes on the same layer
+        connected by a line, or switching between layers by adding or removing
+        a layer from the layer_list and changing the node appropriately.
+        """
+        return []
 
     def __repr__(self):
         return 'PuzzleState({}, {})'.format(repr(self.layer_list),
-                                            repr(self.gate))
+                                            repr(self.node))
 
 
 def breadth_first_search(init_state, goal_state):
+    """
+    Performs a BFS for a given start and goal state.
+
+    This BFS begins with the init_state and ends when it reaches a state
+    equal to the goal_state. It relies on states being hashable to check if
+    they have been explored or not, and for states to have a get_neighbors()
+    method for generating their incident states.
+    """
     node = init_state
     if node == goal_state:
         return node
@@ -102,8 +85,6 @@ def breadth_first_search(init_state, goal_state):
     frontier.put(node)
     explored = set()
     while not frontier.empty():
-        # print('frontier:', frontier)
-        # print('explored:', explored)
         node = frontier.get()
         explored.add(node)
         for neighbor in node.get_neighbors():
@@ -115,12 +96,11 @@ def breadth_first_search(init_state, goal_state):
 
 
 def main():
-    start = PuzzleState(['+', Direction.C], 10)
-    print(start.get_neighbors())
-    # next_state = PuzzleState([Direction.OUT], 8)
-    # print(next_state.get_neighbors())
-
-    goal = PuzzleState(['-', Direction.A], 12)
+    """
+    Calculates the solution of the puzzle.
+    """
+    start = PuzzleState([], ('C', 10))
+    goal = PuzzleState([], ('A', 12))
 
     # print(breadth_first_search(start, goal))
 
