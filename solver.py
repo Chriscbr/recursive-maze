@@ -1,7 +1,8 @@
 """
-This module solves the solution to a recursive maze puzzle.
+This module solves the solution to a recursive maze puzzle,
+which can be found on this page:
+http://www.cis.upenn.edu/~cis39903/
 """
-import queue
 
 """
 Holds a list of connections between search states in the puzzle.
@@ -118,18 +119,20 @@ def breadth_first_search(init_state, goal_state):
     if init_state == goal_state:
         return init_state
     parent = {}
-    frontier = queue.Queue()
-    frontier.put(init_state)
+    frontier = []
+    frontier.append(init_state)
     explored = set()
-    while not frontier.empty():
-        node = frontier.get()
+    while frontier:
+        # Using a deque should be faster in practice for this operation, but
+        # testing showed worse runtimes
+        node = frontier.pop(0)
         if node == goal_state:
             return backtrace(parent, init_state, goal_state)
         explored.add(node)
         for neighbor in node.get_neighbors():
-            if neighbor not in explored:
+            if neighbor not in frontier and neighbor not in explored:
                 parent[neighbor] = node
-                frontier.put(neighbor)
+                frontier.append(neighbor)
     return None
 
 
