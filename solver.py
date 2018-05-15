@@ -45,12 +45,9 @@ class PuzzleState(object):
             'C'), and the specific node in that area (an integer from 1-16).
     """
 
-    def __init__(self, layer_list=None, node=0):
+    def __init__(self, layer_list, node):
         """Inits PuzzleState with a layer list and node."""
-        if layer_list is None:
-            self.layer_list = []
-        else:
-            self.layer_list = layer_list
+        self.layer_list = layer_list
         self.node = node
 
     def get_neighbors(self):
@@ -62,11 +59,51 @@ class PuzzleState(object):
         connected by a line, or switching between layers by adding or removing
         a layer from the layer_list and changing the node appropriately.
         """
-        return []
+        neighbors = []
+        candidates = []
+        for group in CONNECTIONS:
+            match = False
+            for node in group:
+                if node == self.node:
+                    match = True
+            if match:
+                candidates.extend(list(set(group).difference([self.node])))
+        for cand in candidates:
+            neighbors.append(PuzzleState(self.layer_list, cand))
+
+        if self.node[0] == 'E' and self.layer_list:
+            new_node = self.layer_list[-1]
+            new_layer_list = self.layer_list[:-1]
+            neighbors.append(PuzzleState(new_layer_list,
+                                         (new_node, self.node[1])))
+        else:  # node[0] must be 'A', 'B', or 'C'
+            new_layer_list = self.layer_list + [self.node[0]]
+            neighbors.append(PuzzleState(new_layer_list, ('E', self.node[1])))
+        return neighbors
+
+    def __eq__(self, other):
+        return self.layer_list == other.layer_list and self.node == other.node
+
+    def __hash__(self):
+        # Using hashing since we have a mutable attribute is dangerous, but we
+        # will assume no methods in this class actually modify self.layer_list
+        # TODO: change to PuzzleState to use tuple representation
+        return hash((tuple(self.layer_list), self.node))
 
     def __repr__(self):
         return 'PuzzleState({}, {})'.format(repr(self.layer_list),
                                             repr(self.node))
+
+
+def backtrace(parent, init_state, goal_state):
+    """
+    Returns a path from a start to goal given information from a BFS.
+    """
+    path = [goal_state]
+    while path[-1] != init_state:
+        path.append(parent[path[-1]])
+    path.reverse()
+    return path
 
 
 def breadth_first_search(init_state, goal_state):
@@ -78,19 +115,20 @@ def breadth_first_search(init_state, goal_state):
     they have been explored or not, and for states to have a get_neighbors()
     method for generating their incident states.
     """
-    node = init_state
-    if node == goal_state:
-        return node
+    if init_state == goal_state:
+        return init_state
+    parent = {}
     frontier = queue.Queue()
-    frontier.put(node)
+    frontier.put(init_state)
     explored = set()
     while not frontier.empty():
         node = frontier.get()
+        if node == goal_state:
+            return backtrace(parent, init_state, goal_state)
         explored.add(node)
         for neighbor in node.get_neighbors():
             if neighbor not in explored:
-                if neighbor == goal_state:
-                    return neighbor
+                parent[neighbor] = node
                 frontier.put(neighbor)
     return None
 
@@ -102,7 +140,9 @@ def main():
     start = PuzzleState([], ('C', 10))
     goal = PuzzleState([], ('A', 12))
 
-    # print(breadth_first_search(start, goal))
+    solution = breadth_first_search(start, goal)
+    for node in solution:
+        print(node)
 
 if __name__ == '__main__':
     main()
